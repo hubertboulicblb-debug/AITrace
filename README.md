@@ -46,37 +46,37 @@ Instead of treating governance as a collection of documents, AITrace treats it a
                          material identity
                                  │
                   ┌──────────────▼──────────────┐
-                  │           EVIDENCE           │
+                  │           EVIDENCE          │
                   └──────────────┬──────────────┘
                                  │
                          evaluation criteria
                                  │
                   ┌──────────────▼──────────────┐
-                  │         EVALUATION           │
+                  │         EVALUATION          │
                   └──────────────┬──────────────┘
                                  │
                          governance decision
                                  │
                   ┌──────────────▼──────────────┐
-                  │           DECISION            │
+                  │           DECISION          │
                   └──────────────┬──────────────┘
                                  │
                             approved change
                                  │
                   ┌──────────────▼──────────────┐
-                  │            CHANGE             │
+                  │            CHANGE           │
                   └──────────────┬──────────────┘
                                  │
                             deployment
                                  │
                   ┌──────────────▼──────────────┐
-                  │          DEPLOYMENT           │
+                  │          DEPLOYMENT         │
                   └──────────────┬──────────────┘
                                  │
                             verification
                                  │
                   ┌──────────────▼──────────────┐
-                  │         VERIFICATION         │
+                  │         VERIFICATION        │
                   └─────────────────────────────┘
 
 
