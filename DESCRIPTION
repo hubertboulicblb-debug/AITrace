@@ -1,0 +1,53 @@
+Package: AITrace
+Title: Industrial AI Governance, Assurance and Continuous Improvement
+Version: 0.4.1
+Authors@R: person("Hubert", "Boulic", email = "hb914162@gmail.com",
+                  role = c("aut", "cre"))
+Description: A governance-first framework for industrial AI systems.
+    AITrace treats the governed object as the complete AI system (model,
+    data, prompts, retrieval, tools, guardrails, runtime, evidence, risks,
+    incidents, improvements, evaluations, decisions and changes) rather
+    than a single model artifact. Version 0.4.0 adds observation,
+    monitoring_spec, drift_assessment and detection_signal recording on
+    the frozen 0.3.0 decision/change layer. Measurements are supplied;
+    the package never fabricates health or drift scores. Version 0.4.1 is
+    a hardening pass on that recording layer: directional drift semantics,
+    timestamp/version validation, a declarative monitoring_spec default,
+    stricter detection/drift traceability, and registry_import()
+    re-validation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Depends:
+    R (>= 4.1.0)
+Imports:
+    cli,
+    digest,
+    rlang (>= 1.0.0),
+    jsonlite,
+    yaml,
+    tibble,
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Collate:
+    'utils.R'
+    'aitrace_object.R'
+    'enums.R'
+    'ai_system.R'
+    'aitrace-package.R'
+    'change.R'
+    'component.R'
+    'data_asset.R'
+    'decision.R'
+    'evaluation.R'
+    'evidence.R'
+    'improvement.R'
+    'incident.R'
+    'model.R'
+    'observation.R'
+    'registry.R'
+    'risk.R'
+    'zzz.R'

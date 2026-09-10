@@ -1,0 +1,139 @@
+# AITrace 0.4.1
+
+Hardening pass on the 0.4.0 observation/monitoring/drift/detection layer,
+prompted by an external review of 0.4.0. Each item below was verified
+against the actual code before being changed; the 0.3.0 decision/change
+layer and everything from 0.2.2/0.2.3 remain untouched and frozen.
+
+- **`assess_drift()`'s `direction` argument was semantically inert.** It was
+  validated and stored but never affected the drift calculation — `UP`,
+  `DOWN` and `MAINTAIN` all produced identical results. `direction` now
+  actually controls which side of `tolerance` counts as drift: `MAINTAIN`
+  (default, unchanged behaviour) flags either side, `UP` flags only an
+  increase beyond tolerance, `DOWN` flags only a decrease. The
+  `INCONCLUSIVE`/`NO_DRIFT`-on-equality cases are unaffected by `direction`.
+- **`ai_observation()` accepted non-`POSIXct` timestamps and an
+  out-of-order window.** `observed_at`, `window_start` and `window_end` are
+  now validated as scalar `POSIXct`/`POSIXlt`, and `window_end` may not be
+  earlier than `window_start`. `detection_signal()`'s `detected_at` is
+  validated the same way.
+- **`ai_observation(system_version = ...)` silently coerced bad input to
+  `NA` via `as.integer()`** (e.g. `system_version = "abc"` produced a base R
+  warning and an `NA`, not a package error). It now raises a typed
+  `aitrace_error_type` for anything that isn't a single positive integer.
+- **`monitoring_spec()` defaulted to `operator = "GE"` with `criterion =
+  NULL`** — an executable-looking default that could never evaluate to
+  anything but `INCONCLUSIVE`. The default is now `operator = NULL`, making
+  "no criterion yet" the honest default state for a purely declarative spec.
+  `evaluate_monitoring()`'s handling of that case is unchanged.
+- **Dangling detection/drift cross-references were only warnings.**
+  `detection_signal`'s `incident_id`/`observation_id`/`monitoring_id`/
+  `drift_id`/`evaluation_id` and `drift_assessment`'s `observation_id`/
+  `monitoring_id` are optional, but once set they are structural pointers
+  within the same system. `validate_traceability()` now reports a
+  set-but-unresolved reference on these two new 0.4.0 object types as an
+  `issue`, matching the severity already used for incident/improvement
+  links. The 0.3.0 decision/change/evidence reference checks are
+  unchanged (they remain warnings, as before).
+- **`registry_import()` restored systems without re-validating them.** The
+  audit hash chain was (and still is) verified, but a restored system
+  itself skipped `validate_system()` — unlike `registry_add()`, which
+  requires it for an in-process system. Every system restored by
+  `registry_import()` now goes through `validate_system()` before being
+  accepted; a structurally broken import is now rejected with
+  `aitrace_error_validation` instead of being loaded.
+- **`registry_import()` accepted any `schema_version`, including none.**
+  It now checks the snapshot's `schema_version` against an explicit
+  supported list (currently just `"0.4.0"`) and rejects anything else.
+  This is a minimal compatibility policy, not a migration framework —
+  importing an older release's snapshot will need a converter added later
+  if that becomes necessary.
+- Added `tests/testthat/test-hardening.R` covering all of the above.
+
+# AITrace 0.4.0
+
+## Package hygiene (critical fixes — the package now installs and
+## `R CMD check` runs clean)
+
+- **The package would not install.** No `Collate:` field meant `R/` files
+  were sourced alphabetically; every domain file calls
+  `register_restorer()` at the top level, but that function lives in
+  `utils.R`, which sorted after most of them. `R CMD INSTALL` failed with
+  `could not find function "register_restorer"`. Fixed with an explicit
+  `Collate:` field in `DESCRIPTION`.
+- **`ai_system_fingerprint()` / `to_json()` / `registry_export()` crashed**
+  (`No method asJSON S3 class: aitrace_object`) on any system with a
+  model, data asset, prompt, tool, guardrail or runtime attached — i.e.
+  on ordinary use. `to_list.default()` did not recurse into plain lists,
+  and `canonicalize_system()`'s `system[...]` subsetting strips the class
+  that would otherwise trigger the `aitrace_object` method. Fixed by
+  making `to_list()` recurse.
+- `evaluate_requirement(req, NA)` raised instead of returning
+  `INCONCLUSIVE`; `criterion_evaluate()`'s missing-observation handling
+  was unreachable because an earlier validator rejected `NA` first.
+  `evaluation()` now admits `NA` for `observed`, as its own criterion
+  engine always intended.
+- `registry_transition()` (and therefore `system_approve()` /
+  `system_deploy()` / ...) left the change-log `note` blank whenever the
+  caller didn't pass an explicit `reason`, because `reason` defaults to
+  `""` rather than `NULL`. Governance transitions now fall back to the
+  usual `"state -> X"` note when no reason is given.
+- NAMESPACE is now generated by `roxygen2` instead of hand-maintained; six
+  exported functions (`add_evaluation`, `add_baseline_comparison`,
+  `add_evidence_requirement`, `add_regression_assessment`,
+  `evaluation_table`, `comparison_table`) were missing `@export` tags and
+  would have silently vanished from the API on the next `roxygen2::roxygenise()`.
+  Every exported function now has complete `@param`/`@return` documentation
+  (122 `.Rd` pages); `R CMD check --as-cran` runs with 0 errors/warnings.
+- Added `DEPLOYMENT_STATUS_LEVELS` as a proper exported controlled
+  vocabulary (`ai_change()` / `set_change_deployment()` previously
+  duplicated the same literal vector inline).
+- Removed a non-ASCII arrow character from a string literal in
+  `format.ai_change()` (portability requirement for R source).
+- Two tests exercised scenarios the implementation never made reachable
+  (`set_root_cause()` from the default `DETECTED` incident state; a
+  `UNDER_REVIEW -> DEPLOYED` transition that isn't in the lifecycle graph
+  at all) — fixed the tests to exercise the intended guards instead of
+  loosening the guards themselves.
+
+## Observation, monitoring, drift, detection (recording layer)
+
+### Drift semantics (P1)
+`assess_drift()` without a supplied tolerance returns `INCONCLUSIVE` for
+unequal numeric values (no invented definition of meaningful change).
+Equal values still yield `NO_DRIFT`. Drift assessments are stamped with
+system_id/version/fingerprint on attachment.
+
+
+- `ai_observation()` — supplied measurements only; never invents values.
+- `monitoring_spec()` — declarative metric + optional criterion / baseline /
+  drift_tolerance / cadence.
+- `assess_drift()` — deterministic `NO_DRIFT` / `DRIFT_DETECTED` /
+  `INCONCLUSIVE`; no p-values or effect sizes.
+- `detection_signal()` — explicit severity/status; optional links to
+  observation, monitoring, drift, evaluation, incident.
+- `link_detection_incident()` does **not** create incidents automatically.
+- `evaluate_monitoring()` reuses the evaluation criterion engine.
+- System slots: `observations`, `monitoring_specs`, `drift_assessments`,
+  `detections` — governance/ops metadata; material fingerprint unchanged.
+- Tables: `observation_table()`, `drift_table()`, `detection_table()`.
+- Traceability checks for observation/detection system_id and soft ref checks.
+
+## Architecture
+
+```
+0.2.2 Evidence / traceability / audit / fingerprint   FROZEN
+0.2.3 Evaluation semantics                            FROZEN
+0.3.0 Decision + Change                               FROZEN
+0.4.0 Observation → Monitoring → Drift → Detection    CURRENT
+```
+
+Detection does not auto-raise incidents. Incident → Improvement → Change
+remains the existing closed loop.
+
+# AITrace 0.3.0
+
+## Governance Decisions + Changes
+
+See prior release notes for `ai_decision()` / `ai_change()` and
+`close_change()` resulting-version binding.
